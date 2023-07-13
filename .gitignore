@@ -1,0 +1,4 @@
+.vscode
+**/__pycache__
+*.m3u8
+test_*

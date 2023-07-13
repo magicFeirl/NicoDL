@@ -151,7 +151,7 @@ class NicoVideo(object):
         media_sequence = parsed_m3u8['media_sequence']
 
         for seg in parsed_m3u8['segments']:
-            print(urljoin(base_url, f'/{media_sequence}/ts', seg['uri']))
+            print(''.join([base_url, f'{media_sequence}/ts/', seg['uri']]))
 
 
 async def main():

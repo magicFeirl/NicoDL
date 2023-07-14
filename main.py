@@ -15,6 +15,14 @@ class NicoVideo(object):
     def __init__(self, session: ClientSession, proxy=None) -> None:
         self.session = session
         self.proxy = proxy
+        self.headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Host': 'api.dmc.nico',
+            'Origin': 'https://www.nicovideo.jp',
+            'Referer': 'https://www.nicovideo.jp/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
+        }
 
     async def __aenter__(self):
         return self
@@ -113,16 +121,7 @@ class NicoVideo(object):
         url = 'https://api.dmc.nico/api/sessions?_format=json'
         body = {'session': await self.get_api_data(sm)}
 
-        headers = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Host': 'api.dmc.nico',
-            'Origin': 'https://www.nicovideo.jp',
-            'Referer': 'https://www.nicovideo.jp/',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'
-        }
-
-        async with self.session.post(url, json=body, headers=headers, proxy=self.proxy) as resp:
+        async with self.session.post(url, json=body, headers=self.headers, proxy=self.proxy) as resp:
             return await resp.json()
 
     async def get_playlists_url(self, session_dict: dict) -> dict:
@@ -150,8 +149,22 @@ class NicoVideo(object):
 
         media_sequence = parsed_m3u8['media_sequence']
 
-        for seg in parsed_m3u8['segments']:
-            print(''.join([base_url, f'{media_sequence}/ts/', seg['uri']]))
+        with open('segments.txt', 'w') as file:
+            for seg in parsed_m3u8['segments']:
+                file.write(
+                    ''.join([base_url, f'{media_sequence}/ts/', seg['uri']]))
+                file.write('\r\n')
+            # print()
+
+    async def heartbeat(self, session_dict: dict):
+        """
+        Keep heartbeat every 30 sec
+        """
+        session_id = session_dict['id']
+        url = f'https://api.dmc.nico/api/sessions/{session_id}?_format=json&_method=PUT'
+
+        async with self.session.post(url, proxy=self.proxy, json={'session': session_dict}, headers=self.headers) as resp:
+            return await resp.json()
 
 
 async def main():
@@ -160,8 +173,11 @@ async def main():
     async with ClientSession() as session:
         async with NicoVideo(session, proxy=proxy) as nv:
             video_data = await nv.fetch_video('sm34322784')
-            session_data = video_data['data']['session']
-            print(await nv.get_segments_url(session_data))
+            session_dict = video_data['data']['session']
+            # with open('session.json', 'w') as f:
+            #     json.dump(session_dict, f)
+            print(await nv.heartbeat(session_dict))
+            # print(await nv.get_segments_url(session_dict))
 
 if __name__ == '__main__':
     asyncio.run(main())
